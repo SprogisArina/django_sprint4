@@ -1,8 +1,6 @@
 from django import forms
-from django.core.exceptions import ValidationError
-from django.utils import timezone
 
-from .models import Post
+from .models import Comment, Post 
 
 
 class PostForm(forms.ModelForm):
@@ -14,10 +12,9 @@ class PostForm(forms.ModelForm):
             'pub_date': forms.DateInput(attrs={'type': 'date'})
         }
 
-    def clean_pub_date(self):
-        pub_date = self.cleaned_data['pub_date']
-        if pub_date < timezone.now():
-            raise ValidationError(
-                'Дата публикации не может быть раньше сегодняшней'
-            )
-        return pub_date
+
+class CommentForm(forms.ModelForm):
+
+    class Meta:
+        model = Comment
+        fields = ('text',)

@@ -1,10 +1,13 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, render
-from django.views.generic import CreateView, DetailView, ListView
+from django.urls import reverse
 from django.utils import timezone
+from django.views.generic import (
+    CreateView, DeleteView, DetailView, ListView, UpdateView
+)
 
-from .forms import PostForm
-from .models import Category, Post
+from .forms import CommentForm, PostForm
+from .models import Category, Comment, Post
 
 POSTS_ON_DIPLAY = 10
 User = get_user_model()
@@ -21,10 +24,10 @@ class UserDetailView(DetailView):
     model = User
     template_name = 'blog/profile.html'
 
-    # def get_context_data(self, **kwargs):
-    #     context = super().get_context_data(**kwargs)
-    #     context['profile'] = User
-    #     return context
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['profile'] = User
+        return context
 
 
 class PostCreateView(CreateView):
@@ -40,16 +43,52 @@ class PostCreateView(CreateView):
         return super().form_valid(form)
 
 
-# class PostDetailView(DetailView):
-#     model = Post
-#     template_name = 'blog/detail.html'
+class PostUpdateView(UpdateView):
+    model = Post
+    form_class = PostForm
+    template_name = 'blog/create.html'
 
 
-# class Index(ListView):
-#     model = Post
-#     queryset = post_queryset
-#     ordering = 'created_at'
-#     paginate_by = 10
+class PostDeleteView(DeleteView):
+    model = Post
+    template_name = 'blog/create.html'
+    success_url = 'blog:profile'
+
+
+class CommentCreateView(CreateView):
+    post = None
+    model = Comment
+    form_class = CommentForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.post = get_object_or_404(Post, pk=kwargs['post_id'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        form.instance.post = self.post.post_id
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('blog:post_detail', kwargs={'post_id': self.post.pk})
+
+
+class PostDetailView(DetailView):
+    model = Post
+    template_name = 'blog/detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = CommentForm()
+        return context
+
+
+class Index(ListView):
+    model = Post
+    queryset = post_queryset
+    ordering = '-pub_date'
+    paginate_by = 10
+    template_name = 'blog/index.html'
 
 
 # class CategoryListView(ListView):
