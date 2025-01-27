@@ -99,7 +99,7 @@ class Post(BaseModel):
 
 class Comment(models.Model):
     text = models.TextField('Текст комментария')
-    post = models.ForeignKey(
+    post_id = models.ForeignKey(
         Post,
         on_delete=models.CASCADE,
         related_name='comments'
@@ -108,4 +108,4 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ('created_at',)
+        ordering = ('-created_at',)
