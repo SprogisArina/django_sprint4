@@ -7,7 +7,7 @@ from django.views.generic import (
     CreateView, DeleteView, DetailView, ListView, UpdateView
 )
 
-from .forms import CommentForm, PostForm
+from .forms import CommentForm, PostForm, UserForm
 from .models import Category, Comment, Post
 
 POSTS_ON_DIPLAY = 10
@@ -24,33 +24,11 @@ def filter_posts():
     )
 
 
-# class CommentMixin:
-#     model = Comment
-#     post_field = None
-
-#     def dispatch(self, request, *args, **kwargs):
-#         self.post_field = get_object_or_404(Post, pk=kwargs['pk'])
-#         return super().dispatch(request, *args, **kwargs)
-
-#     def get_success_url(self):
-#         return reverse('blog:post_detail', kwargs={'pk': self.post_field.pk})
-
-
-class UserDetailView(DetailView):
-    model = User
-    template_name = 'blog/profile.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['profile'] = User
-        return context
-
-
 class PostCreateView(CreateView):
     model = Post
     form_class = PostForm
+    pk_url_kwarg = 'post_id'
     template_name = 'blog/create.html'
-    success_url = reverse_lazy('blog:profile')
 
     def form_valid(self, form):
         form.instance.author = self.request.user
@@ -58,21 +36,39 @@ class PostCreateView(CreateView):
         form.instance.is_published = True
         return super().form_valid(form)
 
+    def get_success_url(self):
+        return reverse(
+            'blog:profile', kwargs={'username': self.request.user}
+        )
+
 
 class PostUpdateView(UpdateView):
     model = Post
     form_class = PostForm
+    pk_url_kwarg = 'post_id'
     template_name = 'blog/create.html'
+
+    def get_success_url(self):
+        return reverse(
+            'blog:post_detail', kwargs={'post_id': self.object.pk}
+        )
 
 
 class PostDeleteView(DeleteView):
     model = Post
+    pk_url_kwarg = 'post_id'
+    form_class = PostForm
     template_name = 'blog/create.html'
-    success_url = 'blog:profile'
+
+    def get_success_url(self):
+        return reverse(
+            'blog:profile', kwargs={'username': self.request.user}
+        )
 
 
 class PostDetailView(DetailView):
     model = Post
+    pk_url_kwarg = 'post_id'
     template_name = 'blog/detail.html'
 
     def get_context_data(self, **kwargs):
@@ -88,18 +84,16 @@ class CommentCreateView(CreateView):
     post_field = None
     model = Comment
     form_class = CommentForm
+    pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):
-        self.post_field = get_object_or_404(Post, pk=kwargs['pk'])
+        self.post_field = get_object_or_404(Post, pk=kwargs['post_id'])
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         form.instance.author = self.request.user
-        form.instance.post_id = self.post_field
+        form.instance.post = self.post_field
         return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse('blog:post_detail', kwargs={'pk': self.post_field.pk})
 
 
 class CommentUpdateView(UpdateView):
@@ -108,9 +102,6 @@ class CommentUpdateView(UpdateView):
     pk_url_kwarg = 'comment_id'
     template_name = 'blog/comment.html'
 
-    def get_success_url(self):
-        return reverse('blog:post_detail')
-
 
 class CommentDeleteView(DeleteView):
     model = Comment
@@ -118,7 +109,9 @@ class CommentDeleteView(DeleteView):
     template_name = 'blog/comment.html'
 
     def get_success_url(self):
-        return reverse('blog:post_detail', kwargs={'pk': self.post_field.pk})
+        return reverse(
+            'blog:post_detail', kwargs={'post_id': self.object.post_id}
+        )
 
 
 class Index(ListView):
@@ -129,24 +122,32 @@ class Index(ListView):
     template_name = 'blog/index.html'
 
 
-# def index(request):
-#     post_list = filter_posts()[:POSTS_ON_DIPLAY]
-#     return render(request, 'blog/index.html', {'post_list': post_list})
-
-
-# def post_detail(request, post_id):
-#     post = get_object_or_404(filter_posts(), pk=post_id)
-#     return render(request, 'blog/detail.html', {'post': post})
-
-
 def get_user_detail(request, username):
-    post_list = filter_posts().filter(author=username)
     profile = get_object_or_404(User, username=username)
+    if profile == request.user:
+        post_list = Post.objects.select_related(
+            'author', 'category', 'location'
+        ).filter(
+            author__username=username
+        )
+    else:
+        post_list = filter_posts().filter(author__username=username)
+    paginator = Paginator(post_list, POSTS_ON_DIPLAY)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
     context = {
-        'page_obj': post_list,
+        'page_obj': page_obj,
         'profile': profile,
     }
     return render(request, 'blog/profile.html', context)
+
+
+def edit_profile(request):
+    profile = get_object_or_404(User, username=request.user)
+    form = UserForm(request.POST or None, instance=profile)
+    if form.is_valid():
+        form.save()
+    return render(request, 'blog/user.html', {'form': form})
 
 
 def category_posts(request, category_slug):
