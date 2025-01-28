@@ -24,6 +24,10 @@ def filter_posts():
     )
 
 
+# def count_comments():
+#     return Comment.objects.comments.count()
+
+
 class PostCreateView(CreateView):
     model = Post
     form_class = PostForm
@@ -57,8 +61,14 @@ class PostUpdateView(UpdateView):
 class PostDeleteView(DeleteView):
     model = Post
     pk_url_kwarg = 'post_id'
-    form_class = PostForm
     template_name = 'blog/create.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        instance = get_object_or_404(Post, pk=self.object.pk)
+        form = PostForm(instance=instance)
+        context['form'] = form
+        return context
 
     def get_success_url(self):
         return reverse(
@@ -120,6 +130,11 @@ class Index(ListView):
     ordering = '-pub_date'
     paginate_by = 10
     template_name = 'blog/index.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['comment_count'] = count_comments()
+        return context
 
 
 def get_user_detail(request, username):
