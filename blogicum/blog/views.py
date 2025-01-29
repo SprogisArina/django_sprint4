@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, render
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import (
     CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -22,10 +22,6 @@ def filter_posts():
         is_published=True,
         category__is_published=True
     )
-
-
-# def count_comments():
-#     return Comment.objects.comments.count()
 
 
 class PostCreateView(CreateView):
@@ -131,11 +127,6 @@ class Index(ListView):
     paginate_by = 10
     template_name = 'blog/index.html'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['comment_count'] = count_comments()
-        return context
-
 
 def get_user_detail(request, username):
     profile = get_object_or_404(User, username=username)
@@ -151,6 +142,7 @@ def get_user_detail(request, username):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = {
+        # 'comment_count': comment_count,
         'page_obj': page_obj,
         'profile': profile,
     }
@@ -175,6 +167,7 @@ def category_posts(request, category_slug):
     page_obj = paginator.get_page(page_number)
     context = {
         'category': category,
+        # 'comment_count': comment_count,
         'page_obj': page_obj
     }
     return render(request, 'blog/category.html', context)
