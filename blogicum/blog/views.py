@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -24,11 +25,27 @@ def filter_posts():
     )
 
 
-class PostCreateView(CreateView):
+class PostMixin:
     model = Post
-    form_class = PostForm
     pk_url_kwarg = 'post_id'
     template_name = 'blog/create.html'
+
+
+class CommentMixin:
+    model = Comment
+    pk_url_kwarg = 'comment_id'
+    template_name = 'blog/comment.html'
+
+
+class OnlyAuthorMixin(UserPassesTestMixin):
+
+    def test_func(self):
+        object = self.get_object()
+        return object.author == self.request.user
+
+
+class PostCreateView(PostMixin, LoginRequiredMixin, CreateView):
+    form_class = PostForm
 
     def form_valid(self, form):
         form.instance.author = self.request.user
@@ -42,11 +59,8 @@ class PostCreateView(CreateView):
         )
 
 
-class PostUpdateView(UpdateView):
-    model = Post
+class PostUpdateView(PostMixin, OnlyAuthorMixin, UpdateView):
     form_class = PostForm
-    pk_url_kwarg = 'post_id'
-    template_name = 'blog/create.html'
 
     def get_success_url(self):
         return reverse(
@@ -54,10 +68,7 @@ class PostUpdateView(UpdateView):
         )
 
 
-class PostDeleteView(DeleteView):
-    model = Post
-    pk_url_kwarg = 'post_id'
-    template_name = 'blog/create.html'
+class PostDeleteView(PostMixin, OnlyAuthorMixin, DeleteView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -72,9 +83,7 @@ class PostDeleteView(DeleteView):
         )
 
 
-class PostDetailView(DetailView):
-    model = Post
-    pk_url_kwarg = 'post_id'
+class PostDetailView(PostMixin, DetailView):
     template_name = 'blog/detail.html'
 
     def get_context_data(self, **kwargs):
@@ -86,9 +95,9 @@ class PostDetailView(DetailView):
         return context
 
 
-class CommentCreateView(CreateView):
-    post_field = None
+class CommentCreateView(CommentMixin, LoginRequiredMixin, CreateView):
     model = Comment
+    post_field = None
     form_class = CommentForm
     pk_url_kwarg = 'post_id'
 
@@ -102,17 +111,11 @@ class CommentCreateView(CreateView):
         return super().form_valid(form)
 
 
-class CommentUpdateView(UpdateView):
-    model = Comment
+class CommentUpdateView(CommentMixin, OnlyAuthorMixin, UpdateView):
     form_class = CommentForm
-    pk_url_kwarg = 'comment_id'
-    template_name = 'blog/comment.html'
 
 
-class CommentDeleteView(DeleteView):
-    model = Comment
-    pk_url_kwarg = 'comment_id'
-    template_name = 'blog/comment.html'
+class CommentDeleteView(CommentMixin, OnlyAuthorMixin,DeleteView):
 
     def get_success_url(self):
         return reverse(
@@ -123,7 +126,6 @@ class CommentDeleteView(DeleteView):
 class Index(ListView):
     model = Post
     queryset = filter_posts()
-    ordering = '-pub_date'
     paginate_by = 10
     template_name = 'blog/index.html'
 
@@ -142,7 +144,6 @@ def get_user_detail(request, username):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = {
-        # 'comment_count': comment_count,
         'page_obj': page_obj,
         'profile': profile,
     }
@@ -167,7 +168,6 @@ def category_posts(request, category_slug):
     page_obj = paginator.get_page(page_number)
     context = {
         'category': category,
-        # 'comment_count': comment_count,
         'page_obj': page_obj
     }
     return render(request, 'blog/category.html', context)
