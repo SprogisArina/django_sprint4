@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -25,7 +26,7 @@ class PostCreateView(PostMixin, LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse(
-            'blog:profile', kwargs={'username': self.request.user}
+            'blog:profile', kwargs={'username': self.request.user.username}
         )
 
 
@@ -45,8 +46,7 @@ class PostDeleteView(PostMixin, OnlyAuthorMixin, DeleteView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        instance = get_object_or_404(Post, pk=self.object.pk)
-        form = PostForm(instance=instance)
+        form = PostForm(instance=self.object)
         context['form'] = form
         return context
 
@@ -110,18 +110,14 @@ class Index(ListView):
 def get_user_detail(request, username):
     profile = get_object_or_404(User, username=username)
     if profile == request.user:
-        post_list = filter_posts(
-            author_filter_flag=True,
-            annotation_flag=True,
-            username=username
-        )
+        filter_flag = False
     else:
-        post_list = filter_posts(
-            filter_flag=True,
-            author_filter_flag=True,
-            annotation_flag=True,
-            username=username
-        )
+        filter_flag = True
+    post_list = filter_posts(
+        model_manager=profile.posts,
+        filter_flag=filter_flag,
+        annotation_flag=True,
+    )
     page_obj = paginate_posts(request, post_list)
     context = {
         'page_obj': page_obj,
@@ -130,14 +126,12 @@ def get_user_detail(request, username):
     return render(request, 'blog/profile.html', context)
 
 
+@login_required
 def edit_profile(request):
-    if request.user.is_authenticated:
-        form = UserForm(request.POST or None, instance=request.user)
-        if form.is_valid():
-            form.save()
-        return render(request, 'blog/user.html', {'form': form})
-    else:
-        return redirect('login')
+    form = UserForm(request.POST or None, instance=request.user)
+    if form.is_valid():
+        form.save()
+    return render(request, 'blog/user.html', {'form': form})
 
 
 def category_posts(request, category_slug):

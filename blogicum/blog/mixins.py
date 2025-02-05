@@ -1,7 +1,6 @@
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.shortcuts import redirect
 
-
 from .models import Comment, Post
 
 
