@@ -109,13 +109,9 @@ class Index(ListView):
 
 def get_user_detail(request, username):
     profile = get_object_or_404(User, username=username)
-    if profile == request.user:
-        filter_flag = False
-    else:
-        filter_flag = True
     post_list = filter_posts(
         model_manager=profile.posts,
-        filter_flag=filter_flag,
+        filter_flag=profile != request.user,
         annotation_flag=True,
     )
     page_obj = paginate_posts(request, post_list)
