@@ -15,6 +15,7 @@
 
 ```
 git clone git@github.com:SprogisArina/django_sprint4.git
+cd django_sprint4
 ```
 
 Cоздать и активировать виртуальное окружение:
